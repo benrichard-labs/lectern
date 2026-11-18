@@ -131,3 +131,7 @@ Bump the Mac version with `MARKETING_VERSION` in `mac/project.yml`.
 - **Logs**: `log stream --info --predicate 'subsystem == "com.benjaminrichard.Lectern"'`.
 - Garmin's BLE stack has known pairing and bonding bugs on the fēnix 7 and 8. Lectern uses an open, unbonded connection and unpairs and rescans after every disconnect. macOS rotates its Bluetooth address, so waiting for an automatic reconnect isn't reliable.
 - The Connect IQ simulator can only do BLE with a Nordic nRF52 dongle, so test the link on the real watch.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
