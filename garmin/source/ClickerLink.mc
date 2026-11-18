@@ -179,14 +179,14 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
         _state = LINK_CONNECTING;
         WatchUi.requestUpdate();
 
-        var device as BluetoothLowEnergy.Device? = null;
+        var paired = false;
         try {
-            device = BluetoothLowEnergy.pairDevice(result);
+            paired = BluetoothLowEnergy.pairDevice(result) != null;
         } catch (e) {
-            device = null;
+            paired = false;
         }
 
-        if (device == null) {
+        if (!paired) {
             startScan();
             return;
         }
