@@ -64,7 +64,7 @@ If the permission still seems stuck after a rebuild, remove Lectern from the Acc
 
 ## Watch app
 
-Requirements: the [Connect IQ SDK Manager](https://developer.garmin.com/connect-iq/sdk/), with a current SDK and the fēnix 7 device files downloaded. The Monkey C extension for VS Code is the easiest way to build and run; the Makefile works from the terminal.
+Requirements: the [Connect IQ SDK Manager](https://developer.garmin.com/connect-iq/sdk/), with a current SDK and the fēnix 7 device files downloaded, and a Java runtime for the compiler (`brew install openjdk@21`; the Makefile finds Homebrew's JDK without any PATH changes). The Monkey C extension for VS Code is the easiest way to build and run; the Makefile works from the terminal.
 
 ```sh
 make garmin-key            # once: creates garmin/developer_key.der (git-ignored)
@@ -84,6 +84,44 @@ The fēnix 7 connects over USB as an MTP device, which Finder can't open. Use [O
 2. Open Lectern on the watch. It shows **Looking for Mac**, then **Connected** with a double buzz.
 3. **START** or **DOWN** goes to the next slide, **UP** to the previous one. Each acknowledged press gives a short tick; a long buzz means it didn't go through.
 4. **BACK** asks before quitting. The touchscreen is ignored so a brushed screen can't change slides.
+
+## Icon
+
+The app icon is an Icon Composer document (`mac/Lectern/AppIcon.icon`), so it picks up macOS's Liquid Glass styling and light, dark and tinted variants. Xcode generates a classic `.icns` from it for older macOS versions. The watch launcher icon is rendered from the same document as a 40×40 circle.
+
+The glyph comes from `design/make_glyph.py`. After editing it, run `make icons` to regenerate the SVG and the watch icon. You can also open `AppIcon.icon` in Icon Composer (bundled with Xcode) to adjust the colors and glass settings.
+
+## Release builds
+
+```sh
+make release
+```
+
+| Output | Use |
+| --- | --- |
+| `build/release/Lectern-<version>.dmg` | Signed, universal Mac app for installing on other Macs |
+| `build/release/garmin/Lectern.iq` | Connect IQ package covering every device in the manifest; upload it to the Connect IQ store |
+| `build/release/garmin/Lectern-<device>.prg` | Release builds for sideloading onto a specific watch |
+
+Bump the Mac version with `MARKETING_VERSION` in `mac/project.yml`.
+
+### Signing and notarization
+
+`scripts/release-mac.sh` signs with the best certificate it finds: Developer ID Application, then Apple Development, then ad-hoc. Set `SIGN_IDENTITY` to override it.
+
+- **Without a paid Apple Developer Program membership** (a free Personal Team), the app is signed with Apple Development but can't be notarized. On another Mac, the first launch is blocked. Open **System Settings › Privacy & Security** and click **Open Anyway** once.
+- **With a membership**, create a Developer ID Application certificate in Xcode › Settings › Accounts and set its team in `mac/Config/Local.xcconfig`. Then store notarization credentials once and pass the profile name:
+
+  ```sh
+  xcrun notarytool store-credentials lectern --apple-id <you> --team-id <TEAMID>
+  NOTARY_PROFILE=lectern make mac-release
+  ```
+
+  The DMG is then notarized and stapled, and opens on any Mac without warnings.
+
+### Watch signing key
+
+`garmin/developer_key.der` signs every watch build. Back it up somewhere safe outside the repo; it's git-ignored. The Connect IQ store only accepts updates signed with the key that signed the first upload.
 
 ## Troubleshooting
 
