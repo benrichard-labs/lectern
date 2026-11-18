@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Build output
+/build/
+
+# Xcode (project is generated from mac/project.yml by XcodeGen)
+mac/*.xcodeproj/
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Per-machine signing settings
+mac/Config/Local.xcconfig
+
+# Connect IQ
+garmin/bin/
+garmin/gen/
+garmin/mir/
+garmin/internal-mir/
+garmin/external-mir/
+*.prg
+*.prg.debug.xml
+*.iq
+
+# Connect IQ developer signing key — never commit
+*.der
+*.pem

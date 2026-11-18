@@ -1,0 +1,12 @@
+// Shared build settings for the Lectern target.
+//
+// By default the app is ad-hoc signed ("Sign to Run Locally"). macOS ties the
+// Accessibility permission to the code signature, so ad-hoc builds lose that
+// permission after every rebuild. To keep it, copy Local.xcconfig.example to
+// Local.xcconfig (git-ignored) and fill in your team ID.
+
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
