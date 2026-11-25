@@ -25,6 +25,16 @@ class LecternView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, height * 23 / 100, Graphics.FONT_SMALL, statusText(state), Graphics.TEXT_JUSTIFY_CENTER);
+
+        if (state == LINK_SCANNING || state == LINK_CONNECTING) {
+            var issue = _link.getIssue();
+            if (!issue.equals("")) {
+                dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(cx, height * 33 / 100, Graphics.FONT_XTINY, issue, Graphics.TEXT_JUSTIFY_CENTER);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            }
+        }
+
         dc.drawText(
             cx,
             height / 2,
@@ -36,6 +46,17 @@ class LecternView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, height * 68 / 100, Graphics.FONT_XTINY, "START / DOWN: next", Graphics.TEXT_JUSTIFY_CENTER);
         dc.drawText(cx, height * 77 / 100, Graphics.FONT_XTINY, "UP: previous", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Diagnostics: "devices heard / times the Mac was found".
+        if (state != LINK_READY) {
+            dc.drawText(
+                cx,
+                height * 86 / 100,
+                Graphics.FONT_XTINY,
+                "BLE " + _link.getDevicesSeen() + " / Mac " + _link.getAttempts(),
+                Graphics.TEXT_JUSTIFY_CENTER
+            );
+        }
     }
 
     private function statusText(state as Number) as String {

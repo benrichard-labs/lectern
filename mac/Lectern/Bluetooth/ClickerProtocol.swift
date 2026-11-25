@@ -10,6 +10,4 @@ enum ClickerProtocol {
     /// Characteristic the watch writes one-byte commands to. The watch also
     /// subscribes to it, which is how the Mac learns a watch is connected.
     static let commandUUID = CBUUID(string: "2C83F3F3-3807-4B1F-B86D-C8CAD672E516")
-
-    static let localName = "Lectern"
 }
