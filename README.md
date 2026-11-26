@@ -49,7 +49,18 @@ Requirements: macOS 15+, Xcode 26+, `brew install xcodegen`.
 make mac-run
 ```
 
-On first launch, macOS asks for **Bluetooth** access. Allow it. Then open the menu bar icon (▶︎ in a rectangle, filled while a watch is connected) and click **Grant Access…** to add Lectern under **System Settings › Privacy & Security › Accessibility**. That permission is what lets it send arrow keys.
+On first launch, macOS asks for **Bluetooth** access. Allow it. Then open the menu bar icon (▶︎ in a rectangle) and follow the setup checklist: click **Allow…** next to *Send key presses* to add Lectern under **System Settings › Privacy & Security › Accessibility**. That permission is what lets it send arrow keys.
+
+The panel leads with one status that says what to do next, and the menu bar icon shows the same state at a glance:
+
+| Icon | Status |
+| --- | --- |
+| ▶︎ outline with a dot | Setup incomplete: Bluetooth or the key-press permission needs fixing |
+| ▶︎ outline | Waiting for the watch |
+| ▶︎ filled | Watch connected |
+| ⏸ outline | Paused: *Send clicks to the Mac* is off; clicks are shown but not sent |
+
+*Slides go to* names the app that receives the arrow keys: the last app you used before opening the menu. The card above it shows the last click and counts this session's clicks. The **?** button opens troubleshooting tips.
 
 The app is not sandboxed, because sandboxed apps can't post keyboard events.
 
@@ -127,11 +138,11 @@ Bump the Mac version with `MARKETING_VERSION` in `mac/project.yml`.
 
 ## Troubleshooting
 
-- **Watch stuck on "Looking for Mac"**: check that the menu says *Waiting for watches*. If Bluetooth is off or denied, the menu says so. Then read the small grey line at the bottom of the watch screen, **BLE *n* / Mac *m***, and the orange line under the status, if any:
+- **Watch stuck on "Looking for Mac"**: check that the menu says *Waiting for your watch*. If Bluetooth is off or denied, the setup checklist says so and offers a fix. Then read the small grey line at the bottom of the watch screen, **BLE *n* / Mac *m***, and the orange line under the status, if any:
   - **BLE 0**: the watch hears no Bluetooth devices at all. Restart the watch.
   - **BLE** above 0, **Mac 0**: the watch hears devices but not the Mac's advertisement. Make sure both builds are current, then turn the Mac's Bluetooth off and on.
   - **Mac** keeps rising: the watch finds the Mac but the connection fails. The orange line says where: *Pairing refused*, *Connect timed out*, *Service not found*, *Command not found* or *Disconnected*.
-- **Watch connects but slides don't move**: Accessibility access is missing, *Pause forwarding* is on, or the presenting app isn't frontmost.
+- **Watch connects but slides don't move**: Accessibility access is missing, *Send clicks to the Mac* is off, or the presenting app isn't frontmost. *Slides go to* in the menu shows which app gets the keys.
 - **Mac shows no watch but clicks work**: the watch couldn't subscribe. Clicks still work; only the indicator is affected.
 - **Logs**: `log stream --info --predicate 'subsystem == "com.benjaminrichard.Lectern"'`.
 - Garmin's BLE stack has known pairing and bonding bugs on the fēnix 7 and 8. Lectern uses an open, unbonded connection and unpairs and rescans after every disconnect. macOS rotates its Bluetooth address, so waiting for an automatic reconnect isn't reliable.
