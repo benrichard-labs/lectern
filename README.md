@@ -37,6 +37,8 @@ The watch keeps its normal Garmin Connect link to your phone while it's connecte
 
 Unknown bytes are logged and ignored, so new commands can be added without breaking older builds. The constants live in `mac/Lectern/Bluetooth/ClickerProtocol.swift` and `garmin/source/Protocol.mc`; keep them in sync.
 
+**Advertising:** the Mac advertises the service UUID and nothing else, not even a local name. Connect IQ scans passively, so the watch only ever sees the primary advertising packet, not the scan response. The UUID must fit in that packet, and the watch finds the Mac by it, checking the raw advertising bytes as well as Connect IQ's parsed list.
+
 **Connection status:** a CoreBluetooth peripheral gets no callback when a central merely connects. The watch therefore subscribes to the command characteristic right after connecting. The Mac counts subscribed centrals as connected watches and gets an unsubscribe callback when one disconnects.
 
 ## Mac app
@@ -125,7 +127,10 @@ Bump the Mac version with `MARKETING_VERSION` in `mac/project.yml`.
 
 ## Troubleshooting
 
-- **Watch stuck on "Looking for Mac"**: check that the menu says *Waiting for watches*. If Bluetooth is off or denied, the menu says so.
+- **Watch stuck on "Looking for Mac"**: check that the menu says *Waiting for watches*. If Bluetooth is off or denied, the menu says so. Then read the small grey line at the bottom of the watch screen, **BLE *n* / Mac *m***, and the orange line under the status, if any:
+  - **BLE 0**: the watch hears no Bluetooth devices at all. Restart the watch.
+  - **BLE** above 0, **Mac 0**: the watch hears devices but not the Mac's advertisement. Make sure both builds are current, then turn the Mac's Bluetooth off and on.
+  - **Mac** keeps rising: the watch finds the Mac but the connection fails. The orange line says where: *Pairing refused*, *Connect timed out*, *Service not found*, *Command not found* or *Disconnected*.
 - **Watch connects but slides don't move**: Accessibility access is missing, *Pause forwarding* is on, or the presenting app isn't frontmost.
 - **Mac shows no watch but clicks work**: the watch couldn't subscribe. Clicks still work; only the indicator is affected.
 - **Logs**: `log stream --info --predicate 'subsystem == "com.benjaminrichard.Lectern"'`.

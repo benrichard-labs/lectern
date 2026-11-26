@@ -24,8 +24,10 @@ enum {
 class ClickerLink extends BluetoothLowEnergy.BleDelegate {
     private const MAX_QUEUED = 4;
     private const CONNECT_TIMEOUT_MS = 10000;
+    private const MAX_TRACKED_DEVICES = 50;
 
     private var _serviceUuid as BluetoothLowEnergy.Uuid;
+    private var _serviceBytes as ByteArray;
     private var _commandUuid as BluetoothLowEnergy.Uuid;
     private var _watchdog as Timer.Timer;
 
@@ -37,9 +39,17 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
     private var _inFlight as Number? = null;
     private var _lastSent as Number? = null;
 
+    // Diagnostics shown on screen while not connected, so a failure can be
+    // described without logs: whether the radio sees anything at all, how
+    // often the Mac was found, and why the last attempt was dropped.
+    private var _devices as Array<BluetoothLowEnergy.ScanResult> = [] as Array<BluetoothLowEnergy.ScanResult>;
+    private var _attempts as Number = 0;
+    private var _issue as String = "";
+
     function initialize() {
         BleDelegate.initialize();
         _serviceUuid = BluetoothLowEnergy.stringToUuid(LecternProtocol.SERVICE_UUID);
+        _serviceBytes = uuidBytes(LecternProtocol.SERVICE_UUID);
         _commandUuid = BluetoothLowEnergy.stringToUuid(LecternProtocol.COMMAND_UUID);
         _watchdog = new Timer.Timer();
     }
@@ -76,6 +86,21 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
 
     function getError() as String {
         return _error;
+    }
+
+    // Distinct BLE devices heard while scanning.
+    function getDevicesSeen() as Number {
+        return _devices.size();
+    }
+
+    // Times the Mac was found and a connection was attempted.
+    function getAttempts() as Number {
+        return _attempts;
+    }
+
+    // Why the last connection attempt was dropped, or "".
+    function getIssue() as String {
+        return _issue;
     }
 
     // The most recent command the Mac acknowledged, or null.
@@ -116,11 +141,15 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
             return;
         }
         for (var result = scanResults.next(); result != null; result = scanResults.next()) {
-            if (result instanceof BluetoothLowEnergy.ScanResult && advertisesLectern(result)) {
-                connect(result);
-                return;
+            if (result instanceof BluetoothLowEnergy.ScanResult) {
+                track(result);
+                if (advertisesLectern(result)) {
+                    connect(result);
+                    return;
+                }
             }
         }
+        WatchUi.requestUpdate();
     }
 
     function onConnectedStateChanged(device as BluetoothLowEnergy.Device, state as BluetoothLowEnergy.ConnectionState) as Void {
@@ -131,6 +160,7 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
             }
         } else if (_state == LINK_CONNECTING || _state == LINK_READY) {
             // Ignore late disconnects from devices we already dropped.
+            _issue = "Disconnected";
             reconnect();
         }
     }
@@ -158,6 +188,7 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
     // Called by the watchdog timer when a connection attempt stalls.
     function onConnectTimeout() as Void {
         if (_state == LINK_CONNECTING) {
+            _issue = "Connect timed out";
             reconnect();
         }
     }
@@ -177,6 +208,7 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
     private function connect(result as BluetoothLowEnergy.ScanResult) as Void {
         BluetoothLowEnergy.setScanState(BluetoothLowEnergy.SCAN_STATE_OFF);
         _state = LINK_CONNECTING;
+        _attempts += 1;
         WatchUi.requestUpdate();
 
         var paired = false;
@@ -187,6 +219,7 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
         }
 
         if (!paired) {
+            _issue = "Pairing refused";
             startScan();
             return;
         }
@@ -197,11 +230,13 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
     private function subscribe(device as BluetoothLowEnergy.Device) as Void {
         var service = device.getService(_serviceUuid);
         if (service == null) {
+            _issue = "Service not found";
             reconnect();
             return;
         }
         var command = service.getCharacteristic(_commandUuid);
         if (command == null) {
+            _issue = "Command not found";
             reconnect();
             return;
         }
@@ -225,6 +260,7 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
 
     private function markReady() as Void {
         _state = LINK_READY;
+        _issue = "";
         buzz([80, 80, 80]);
         WatchUi.requestUpdate();
         flush();
@@ -267,14 +303,88 @@ class ClickerLink extends BluetoothLowEnergy.BleDelegate {
 
     // MARK: Helpers
 
+    // Checks the parsed service list, then the raw advertising bytes.
+    // Connect IQ's advertising parser has known bugs on some firmware, and
+    // macOS may order or pack its advertising fields differently from one Mac
+    // to the next, so the raw search is the fallback that doesn't depend on
+    // either.
     private function advertisesLectern(result as BluetoothLowEnergy.ScanResult) as Boolean {
-        var uuids = result.getServiceUuids();
-        for (var uuid = uuids.next(); uuid != null; uuid = uuids.next()) {
-            if (uuid.equals(_serviceUuid)) {
+        try {
+            var uuids = result.getServiceUuids();
+            if (uuids != null) {
+                for (var uuid = uuids.next(); uuid != null; uuid = uuids.next()) {
+                    if (uuid instanceof BluetoothLowEnergy.Uuid && uuid.equals(_serviceUuid)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (e) {
+            // Fall through to the raw search.
+        }
+
+        try {
+            return containsUuid(result.getRawData());
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Looks for the service UUID anywhere in raw advertising data. BLE sends
+    // UUIDs little-endian; the big-endian order is checked too in case the
+    // bytes were already flipped.
+    private function containsUuid(raw as ByteArray?) as Boolean {
+        if (raw == null) {
+            return false;
+        }
+        var n = _serviceBytes.size();
+        for (var start = 0; start + n <= raw.size(); start++) {
+            if (matchesAt(raw, start, true) || matchesAt(raw, start, false)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private function matchesAt(raw as ByteArray, start as Number, reversed as Boolean) as Boolean {
+        var n = _serviceBytes.size();
+        for (var i = 0; i < n; i++) {
+            var expected = reversed ? _serviceBytes[n - 1 - i] : _serviceBytes[i];
+            if (raw[start + i] != expected) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Remembers each distinct device heard, up to a cap, for the on-screen
+    // counter.
+    private function track(result as BluetoothLowEnergy.ScanResult) as Void {
+        if (_devices.size() >= MAX_TRACKED_DEVICES) {
+            return;
+        }
+        for (var i = 0; i < _devices.size(); i++) {
+            if (_devices[i].isSameDevice(result)) {
+                return;
+            }
+        }
+        _devices.add(result);
+    }
+
+    // "9d3a29a7-e21d-..." to its 16 bytes, most significant first.
+    private function uuidBytes(text as String) as ByteArray {
+        var hex = "";
+        var chars = text.toCharArray();
+        for (var i = 0; i < chars.size(); i++) {
+            if (chars[i] != '-') {
+                hex += chars[i].toString();
+            }
+        }
+        var bytes = new [hex.length() / 2]b;
+        for (var i = 0; i < bytes.size(); i++) {
+            var pair = hex.substring(i * 2, i * 2 + 2) as String;
+            bytes[i] = pair.toNumberWithBase(16) as Number;
+        }
+        return bytes;
     }
 
     // Drops every device this app paired. macOS rotates its Bluetooth address,

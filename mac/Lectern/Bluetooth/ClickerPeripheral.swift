@@ -77,9 +77,14 @@ extension ClickerPeripheral: @MainActor CBPeripheralManagerDelegate {
             return
         }
 
+        // Advertise the service UUID and nothing else. Connect IQ scans
+        // passively: the watch only sees the primary advertising packet,
+        // never the scan response. A 128-bit UUID already takes 18 of its 31
+        // bytes, and macOS decides on its own how to pack and split the
+        // fields, so anything extra risks pushing the UUID out of the
+        // packet the watch can see. The watch doesn't use a name.
         peripheral.startAdvertising([
             CBAdvertisementDataServiceUUIDsKey: [ClickerProtocol.serviceUUID],
-            CBAdvertisementDataLocalNameKey: ClickerProtocol.localName,
         ])
     }
 
