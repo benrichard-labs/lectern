@@ -5,44 +5,84 @@ import SwiftUI
 struct MenuContentView: View {
     @Bindable var model: AppModel
     @State private var launchesAtLogin = false
+    @State private var showsHelp = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lectern")
-                .font(.headline)
+            StatusHeader(model: model)
 
-            VStack(alignment: .leading, spacing: 6) {
-                StatusRow(title: bluetoothTitle, isOK: model.peripheral.state == .advertising)
-                StatusRow(title: watchTitle, isOK: model.isWatchConnected)
-            }
+            if showsHelp {
+                TroubleshootingView { showsHelp = false }
+            } else if model.status == .setup {
+                SetupChecklist(model: model)
+            } else {
+                if showsLastClick, let command = model.lastCommand, let date = model.lastCommandDate {
+                    LastClickCard(
+                        command: command,
+                        date: date,
+                        wasSent: model.lastCommandWasSent,
+                        serial: model.commandSerial,
+                        forwardCount: model.forwardCount,
+                        backCount: model.backCount
+                    )
+                }
 
-            if !model.isTrusted {
-                AccessibilityBanner(
-                    requestAccess: model.requestAccessibility,
-                    openSettings: model.openAccessibilitySettings
-                )
-            }
+                PanelGroup {
+                    PanelRow {
+                        if let icon = model.target.icon {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .frame(width: 18, height: 18)
+                        }
+                        Text("Slides go to")
+                        Spacer(minLength: 8)
+                        Text(model.target.name ?? String(localized: "Frontmost app"))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Divider()
+                    PanelRow {
+                        Text("Send clicks to the Mac")
+                        Spacer(minLength: 8)
+                        Toggle("Send clicks to the Mac", isOn: $model.isForwarding)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+                }
 
-            if let command = model.lastCommand, let date = model.lastCommandDate {
-                Text("\(command.title), \(Text(date, style: .relative)) ago")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                if model.status == .waiting {
+                    StuckHint(waitingSince: model.peripheral.waitingSince) { showsHelp = true }
+                }
             }
 
             Divider()
 
-            Toggle("Pause forwarding", isOn: $model.isPaused)
-            Toggle("Launch at login", isOn: $launchesAtLogin)
-
-            Divider()
-
-            Button("Quit Lectern") {
-                NSApplication.shared.terminate(nil)
+            HStack(spacing: 10) {
+                Toggle("Launch at login", isOn: $launchesAtLogin)
+                    .toggleStyle(.checkbox)
+                Spacer()
+                Button {
+                    showsHelp.toggle()
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("Troubleshooting")
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut("q")
             }
-            .keyboardShortcut("q")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .controlSize(.small)
         }
-        .padding()
-        .frame(width: 280)
+        .padding(12)
+        .frame(width: 300)
+        .animation(.default, value: model.status)
+        .animation(.default, value: showsHelp)
         .onAppear {
             model.refreshAccessibility()
             launchesAtLogin = model.launchesAtLogin
@@ -51,29 +91,49 @@ struct MenuContentView: View {
             model.setLaunchesAtLogin(enabled)
             launchesAtLogin = model.launchesAtLogin
         }
-        .task(id: model.isTrusted) {
-            // macOS doesn't announce Accessibility changes, so poll while the
-            // panel is open until access is granted.
-            while !model.isTrusted, !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                model.refreshAccessibility()
+    }
+
+    private var showsLastClick: Bool {
+        model.status == .connected || model.status == .paused
+    }
+}
+
+/// A rounded, lightly filled group of rows, like a section in System Settings.
+struct PanelGroup<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .padding(.horizontal, 10)
+        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 8))
+    }
+}
+
+struct PanelRow<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: 8) {
+            content
+        }
+        .frame(minHeight: 30)
+    }
+}
+
+/// Appears after half a minute of waiting, linking to the troubleshooting tips.
+private struct StuckHint: View {
+    let waitingSince: Date?
+    let showHelp: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            if let waitingSince, context.date.timeIntervalSince(waitingSince) > 30 {
+                Button("Watch stuck on “Looking for Mac”?", action: showHelp)
+                    .buttonStyle(.link)
+                    .font(.caption)
             }
         }
-    }
-
-    private var bluetoothTitle: LocalizedStringKey {
-        switch model.peripheral.state {
-        case .starting: "Starting Bluetooth…"
-        case .advertising: "Waiting for watches"
-        case .poweredOff: "Bluetooth is off"
-        case .unauthorized: "Bluetooth access denied"
-        case .unsupported: "Bluetooth LE not supported"
-        case .failed(let message): "Bluetooth error: \(message)"
-        }
-    }
-
-    private var watchTitle: LocalizedStringKey {
-        let count = model.peripheral.connectedWatches.count
-        return count == 0 ? "No watch connected" : "^[\(count) watch](inflect: true) connected"
     }
 }

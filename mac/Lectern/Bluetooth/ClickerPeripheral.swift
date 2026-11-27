@@ -24,6 +24,10 @@ final class ClickerPeripheral: NSObject {
     /// unsubscribe when a subscribed central disconnects.
     private(set) var connectedWatches: Set<UUID> = []
 
+    /// When the Mac started advertising with no watch connected, or nil while
+    /// a watch is connected or Bluetooth isn't advertising.
+    private(set) var waitingSince: Date?
+
     @ObservationIgnored var onCommand: (@MainActor (ClickerCommand) -> Void)?
     @ObservationIgnored private var manager: CBPeripheralManager?
     @ObservationIgnored private let logger = Logger(subsystem: "com.benjaminrichard.Lectern", category: "Bluetooth")
@@ -33,6 +37,22 @@ final class ClickerPeripheral: NSObject {
         // A nil queue delivers delegate callbacks on the main queue, which
         // matches this type's main-actor isolation.
         manager = CBPeripheralManager(delegate: self, queue: nil)
+    }
+
+    /// Publishes the service and advertises again, after a failure.
+    func restart() {
+        guard let manager else {
+            start()
+            return
+        }
+        manager.stopAdvertising()
+        waitingSince = nil
+        state = .starting
+        if manager.state == .poweredOn {
+            publishService(on: manager)
+        } else {
+            peripheralManagerDidUpdateState(manager)
+        }
     }
 
     private func publishService(on manager: CBPeripheralManager) {
@@ -53,6 +73,7 @@ final class ClickerPeripheral: NSObject {
 extension ClickerPeripheral: @MainActor CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         connectedWatches.removeAll()
+        waitingSince = nil
 
         switch peripheral.state {
         case .poweredOn:
@@ -95,17 +116,24 @@ extension ClickerPeripheral: @MainActor CBPeripheralManagerDelegate {
         } else {
             logger.info("Advertising Lectern service")
             state = .advertising
+            if connectedWatches.isEmpty {
+                waitingSince = .now
+            }
         }
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
         logger.info("Watch connected: \(central.identifier)")
         connectedWatches.insert(central.identifier)
+        waitingSince = nil
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
         logger.info("Watch disconnected: \(central.identifier)")
         connectedWatches.remove(central.identifier)
+        if connectedWatches.isEmpty, state == .advertising {
+            waitingSince = .now
+        }
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
