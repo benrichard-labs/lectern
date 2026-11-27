@@ -1,14 +1,36 @@
-# Lectern
+<p align="center">
+  <img src="docs/images/icon.svg" alt="Lectern app icon" width="128">
+</p>
 
-**Change slides from your Garmin watch.**
+<h1 align="center">Lectern</h1>
 
-Lectern turns a Garmin fēnix 7 into a presentation clicker for Keynote, PowerPoint, Google Slides and anything else that moves on the arrow keys. Press a button on your wrist, the slide moves, and the watch ticks so you know it went through. There's no remote to forget and no Bluetooth pairing to set up.
+<p align="center">
+  <b>Change slides from your Garmin watch.</b><br>
+  A presentation clicker for Keynote, PowerPoint and Google Slides,<br>
+  on the fēnix 7 you're already wearing.
+</p>
+
+<p align="center">
+  <a href="https://github.com/benrichard-labs/lectern/releases/latest"><b>Download</b></a>
+  ·
+  <a href="#install">Install</a>
+  ·
+  <a href="#present-with-it">Present</a>
+  ·
+  <a href="#if-something-doesnt-work">Help</a>
+  ·
+  <a href="docs/DEVELOPMENT.md">Developers</a>
+</p>
 
 <p align="center">
   <img src="docs/images/watch-connected.jpg" alt="Lectern on a fēnix 7, connected and ready" width="300">
   &nbsp;&nbsp;
   <img src="docs/images/menu-connected.png" alt="The Lectern menu on the Mac: watch connected, clicks go to Microsoft PowerPoint" width="400">
 </p>
+
+---
+
+Press a button on your wrist, the slide moves, and the watch ticks so you know it went through. There's no remote to forget and no Bluetooth pairing to set up.
 
 ## Why you'll like it
 

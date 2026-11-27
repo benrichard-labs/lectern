@@ -102,6 +102,8 @@ The fēnix 7 connects over USB as an MTP device, which Finder can't open. Use [O
 
 The app icon is an Icon Composer document (`mac/Lectern/AppIcon.icon`), so it picks up macOS's Liquid Glass styling and light, dark and tinted variants. Xcode generates a classic `.icns` from it for older macOS versions. The watch launcher icon is rendered from the same document as a 40×40 circle.
 
+The README shows `docs/images/icon.svg`, a flat rendering of the same icon (glyph, orange gradient, squircle) since GitHub can't display an Icon Composer document. Update it by hand if the icon changes.
+
 The glyph comes from `design/make_glyph.py`. After editing it, run `make icons` to regenerate the SVG and the watch icon. You can also open `AppIcon.icon` in Icon Composer (bundled with Xcode) to adjust the colors and glass settings.
 
 ## Release builds
