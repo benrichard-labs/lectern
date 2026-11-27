@@ -1,152 +1,153 @@
-# Lectern
+<p align="center">
+  <img src="docs/images/icon.svg" alt="Lectern app icon" width="128">
+</p>
 
-Turn a Garmin fēnix 7 into a slide clicker for Keynote, PowerPoint and anything else that moves on the arrow keys.
+<h1 align="center">Lectern</h1>
 
-Garmin watches can't pose as a Bluetooth keyboard: Connect IQ only lets the watch act as a BLE **central**. Lectern flips the roles. The Mac advertises a small GATT service, the watch connects to it, and each button press writes one byte that the Mac turns into an arrow key.
+<p align="center">
+  <b>Change slides from your Garmin watch.</b><br>
+  A presentation clicker for Keynote, PowerPoint and Google Slides,<br>
+  on the fēnix 7 you're already wearing.
+</p>
 
-```
- fēnix 7 (Connect IQ, BLE central)            Mac (menu bar app, BLE peripheral)
- ┌──────────────────────────┐   write 0x01   ┌───────────────────────────────┐
- │ START / DOWN  → next     │ ─────────────▶ │ CBPeripheralManager           │
- │ UP            → previous │   write 0x02   │   → CGEvent → / ←               │
- │ vibrates on each ack     │ ◀───────────── │   → frontmost app (Keynote …)   │
- └──────────────────────────┘   ATT response └───────────────────────────────┘
-```
+<p align="center">
+  <a href="https://github.com/benrichard-labs/lectern/releases/latest"><b>Download</b></a>
+  ·
+  <a href="#install">Install</a>
+  ·
+  <a href="#present-with-it">Present</a>
+  ·
+  <a href="#if-something-doesnt-work">Help</a>
+  ·
+  <a href="docs/DEVELOPMENT.md">Developers</a>
+</p>
 
-The watch keeps its normal Garmin Connect link to your phone while it's connected to the Mac.
+<p align="center">
+  <img src="docs/images/watch-connected.jpg" alt="Lectern on a fēnix 7, connected and ready" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/images/menu-connected.png" alt="The Lectern menu on the Mac: watch connected, clicks go to Microsoft PowerPoint" width="400">
+</p>
 
-## Repository layout
+---
 
-| Path | What |
+Press a button on your wrist, the slide moves, and the watch ticks so you know it went through. There's no remote to forget and no Bluetooth pairing to set up.
+
+## Why you'll like it
+
+- **Buttons you can find without looking.** START or DOWN for the next slide, UP for the previous one.
+- **You feel every click.** A short tick when the slide moved, a long buzz if it didn't.
+- **Works with any presentation app.** Keynote, PowerPoint, Google Slides in a browser, PDF viewers: if the arrow keys move it, Lectern moves it.
+- **Connects by itself.** Open Lectern on the watch and it finds your Mac in a few seconds. Your watch stays connected to your phone the whole time.
+- **Shows where your clicks go.** The Mac menu names the app that will receive them, so you notice before your talk if the wrong window is in front.
+- **Hard to trigger by accident.** The touchscreen is ignored, and BACK asks before quitting.
+- **Private.** The watch talks straight to your Mac over Bluetooth. No account, no internet connection, nothing collected.
+
+## What you need
+
+- A Mac with **macOS 15 Sequoia** or later
+- A **Garmin fēnix 7**, 7S, 7X, 7 Pro, 7S Pro or 7X Pro
+
+## Install
+
+Download both parts from the [latest release](https://github.com/benrichard-labs/lectern/releases/latest).
+
+### On your Mac
+
+1. Open `Lectern-<version>.dmg` and drag **Lectern** into **Applications**.
+2. Open Lectern. It lives in the menu bar (▶︎ in a rectangle), not in the Dock.
+3. When macOS asks for **Bluetooth** access, click **Allow**.
+4. Click the menu bar icon and follow **Finish setup**: click **Allow…** next to *Send key presses*, then switch **Lectern** on in the list macOS opens. This is what lets Lectern press the arrow keys for you.
+5. Optional: tick **Launch at login** at the bottom of the menu.
+
+### On your watch
+
+Lectern isn't on the Connect IQ Store yet, so you copy it onto the watch once.
+
+1. Download the file for your model from the release: `Lectern-fenix7.prg`, `Lectern-fenix7s.prg`, `Lectern-fenix7x.prg`, `Lectern-fenix7pro.prg`, `Lectern-fenix7spro.prg` or `Lectern-fenix7xpro.prg`. Not sure which one you have? On the watch, go to **Settings › System › About**.
+2. Install [OpenMTP](https://openmtp.ganeshrvel.com). The Mac's Finder can't open Garmin watches.
+3. Connect the watch with its USB cable, open OpenMTP, and copy the `.prg` file into the watch's `GARMIN/APPS` folder.
+4. Unplug the watch. **Lectern** now appears in its list of apps.
+
+<p align="center">
+  <img src="docs/images/watch-app-list.jpg" alt="Lectern in the fēnix 7 app list" width="300">
+</p>
+
+## Present with it
+
+1. Open your presentation on the Mac and click into it, so it's the app in front.
+2. On the watch, open **Lectern**. It shows *Looking for Mac*, then *Connected* with a double buzz.
+3. Press **START** or **DOWN** for the next slide, **UP** for the previous one.
+4. When you're done, press **BACK** and confirm.
+
+Before you start, glance at the Lectern menu on the Mac: **Slides go to** should name your presentation app.
+
+## The menu bar
+
+The menu always leads with what's happening and what to do next.
+
+<p align="center">
+  <img src="docs/images/menu-waiting.png" alt="Lectern menu waiting for the watch" width="400">
+</p>
+
+The icon shows the same thing at a glance:
+
+| Icon | Meaning |
 | --- | --- |
-| `mac/` | SwiftUI menu bar app. `project.yml` is the source of truth; the Xcode project is generated by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and git-ignored. |
-| `garmin/` | Connect IQ watch app in Monkey C. |
-| `Makefile` | Build shortcuts for both. |
-
-## Protocol
-
-| | UUID |
-| --- | --- |
-| Service | `9D3A29A7-E21D-4E74-975D-17A6B396EEA6` |
-| Command characteristic (write, write without response, notify) | `2C83F3F3-3807-4B1F-B86D-C8CAD672E516` |
-
-| Byte | Meaning | Key sent |
-| --- | --- | --- |
-| `0x01` | Next slide | → |
-| `0x02` | Previous slide | ← |
-
-Unknown bytes are logged and ignored, so new commands can be added without breaking older builds. The constants live in `mac/Lectern/Bluetooth/ClickerProtocol.swift` and `garmin/source/Protocol.mc`; keep them in sync.
-
-**Advertising:** the Mac advertises the service UUID and nothing else, not even a local name. Connect IQ scans passively, so the watch only ever sees the primary advertising packet, not the scan response. The UUID must fit in that packet, and the watch finds the Mac by it, checking the raw advertising bytes as well as Connect IQ's parsed list.
-
-**Connection status:** a CoreBluetooth peripheral gets no callback when a central merely connects. The watch therefore subscribes to the command characteristic right after connecting. The Mac counts subscribed centrals as connected watches and gets an unsubscribe callback when one disconnects.
-
-## Mac app
-
-Requirements: macOS 15+, Xcode 26+, `brew install xcodegen`.
-
-```sh
-make mac-run
-```
-
-On first launch, macOS asks for **Bluetooth** access. Allow it. Then open the menu bar icon (▶︎ in a rectangle) and follow the setup checklist: click **Allow…** next to *Send key presses* to add Lectern under **System Settings › Privacy & Security › Accessibility**. That permission is what lets it send arrow keys.
-
-The panel leads with one status that says what to do next, and the menu bar icon shows the same state at a glance:
-
-| Icon | Status |
-| --- | --- |
-| ▶︎ outline with a dot | Setup incomplete: Bluetooth or the key-press permission needs fixing |
-| ▶︎ outline | Waiting for the watch |
+| ▶︎ outline with a dot | Setup isn't finished. Open the menu to see what's missing. |
+| ▶︎ outline | Ready, waiting for your watch |
 | ▶︎ filled | Watch connected |
-| ⏸ outline | Paused: *Send clicks to the Mac* is off; clicks are shown but not sent |
+| ⏸ outline | Paused |
 
-*Slides go to* names the app that receives the arrow keys: the last app you used before opening the menu. The card above it shows the last click and counts this session's clicks. The **?** button opens troubleshooting tips.
+Turn off **Send clicks to the Mac** to rehearse with the watch without moving your slides. Each click still shows up in the menu, marked *not sent*.
 
-The app is not sandboxed, because sandboxed apps can't post keyboard events.
+## If something doesn't work
 
-### Signing and the Accessibility permission
+**The watch stays on "Looking for Mac"**
 
-macOS ties the Accessibility permission to the app's code signature. An ad-hoc ("Sign to Run Locally") build gets a new signature on every rebuild and loses the permission each time. To keep it, sign with your Apple Development certificate:
+First check that the Mac menu says *Waiting for your watch*. If it says *Finish setup*, follow the steps it shows.
 
-```sh
-cp mac/Config/Local.xcconfig.example mac/Config/Local.xcconfig
-# then set DEVELOPMENT_TEAM; the file is git-ignored
-```
+Then look at the small line at the bottom of the watch screen:
 
-If the permission still seems stuck after a rebuild, remove Lectern from the Accessibility list and add it again.
+<p align="center">
+  <img src="docs/images/watch-looking.jpg" alt="The watch looking for the Mac, showing BLE 16 / Mac 0" width="300">
+</p>
 
-## Watch app
+| Watch shows | What it means | What to do |
+| --- | --- | --- |
+| **BLE 0** | The watch hears no Bluetooth at all | Restart the watch |
+| **BLE** above 0, **Mac 0** | The watch can't see your Mac | Make sure Lectern is running on the Mac. Turn the Mac's Bluetooth off and on, then reopen Lectern on the watch. |
+| **Mac** keeps going up | The watch finds your Mac but can't connect | The orange line on the watch says why. Quit Lectern on the watch and open it again. |
 
-Requirements: the [Connect IQ SDK Manager](https://developer.garmin.com/connect-iq/sdk/), with a current SDK and the fēnix 7 device files downloaded, and a Java runtime for the compiler (`brew install openjdk@21`; the Makefile finds Homebrew's JDK without any PATH changes). The Monkey C extension for VS Code is the easiest way to build and run; the Makefile works from the terminal.
+The **?** button in the Mac menu shows the same tips.
 
-```sh
-make garmin-key            # once: creates garmin/developer_key.der (git-ignored)
-make garmin                # builds build/garmin/Lectern-fenix7.prg
-make garmin DEVICE=fenix7x # other models: fenix7s, fenix7x, fenix7pro, fenix7spro, fenix7xpro
-```
+**The watch is connected but slides don't move**
 
-To add another watch, add its product ID to `garmin/manifest.xml`. Any device with Connect IQ 3.1+ and BLE support should work.
+- In the Mac menu, check that **Slides go to** shows your presentation app. If not, click into your presentation.
+- Check that **Send clicks to the Mac** is on.
+- If the menu says *Finish setup*, *Send key presses* isn't allowed yet.
 
-### Sideloading
+**After updating Lectern, *Send key presses* isn't allowed, even though Lectern is switched on in System Settings**
 
-The fēnix 7 connects over USB as an MTP device, which Finder can't open. Use [OpenMTP](https://openmtp.ganeshrvel.com) or Android File Transfer, then copy the `.prg` into `GARMIN/APPS/` on the watch and unplug it. Lectern appears in the watch's app list.
+macOS sometimes keeps the permission for the old version. Quit Lectern, remove it from the list in System Settings with the **−** button, then open Lectern and click **Allow…** again.
 
-### Using it
+**OpenMTP doesn't see the watch**
 
-1. Start Lectern on the Mac and open your presentation so the presenting app is frontmost.
-2. Open Lectern on the watch. It shows **Looking for Mac**, then **Connected** with a double buzz.
-3. **START** or **DOWN** goes to the next slide, **UP** to the previous one. Each acknowledged press gives a short tick; a long buzz means it didn't go through.
-4. **BACK** asks before quitting. The touchscreen is ignored so a brushed screen can't change slides.
+Unplug the watch, quit OpenMTP, and quit Garmin Express or Android File Transfer if you have them. In Terminal, run `killall ptpcamerad`, then plug the watch back in and open OpenMTP.
 
-## Icon
+## Questions
 
-The app icon is an Icon Composer document (`mac/Lectern/AppIcon.icon`), so it picks up macOS's Liquid Glass styling and light, dark and tinted variants. Xcode generates a classic `.icns` from it for older macOS versions. The watch launcher icon is rendered from the same document as a 40×40 circle.
+**Why does it need an app on the Mac?**
+Garmin watches can't act as a Bluetooth keyboard. The Mac app receives the button presses from the watch and turns them into arrow keys.
 
-The glyph comes from `design/make_glyph.py`. After editing it, run `make icons` to regenerate the SVG and the watch icon. You can also open `AppIcon.icon` in Icon Composer (bundled with Xcode) to adjust the colors and glass settings.
+**Does it work with Windows, an iPad or other Garmin watches?**
+Not today. It's Mac only, and the watch app is built for the fēnix 7 family. Other Garmin watches that run Connect IQ apps could be added later.
 
-## Release builds
+**Does it collect anything?**
+No. Lectern doesn't connect to the internet, and the watch only ever sends "next" or "previous" to your Mac.
 
-```sh
-make release
-```
+## For developers
 
-| Output | Use |
-| --- | --- |
-| `build/release/Lectern-<version>.dmg` | Signed, universal Mac app for installing on other Macs |
-| `build/release/garmin/Lectern.iq` | Connect IQ package covering every device in the manifest; upload it to the Connect IQ store |
-| `build/release/garmin/Lectern-<device>.prg` | Release builds for sideloading onto a specific watch |
-
-Bump the Mac version with `MARKETING_VERSION` in `mac/project.yml`.
-
-### Signing and notarization
-
-`scripts/release-mac.sh` signs with the best certificate it finds: Developer ID Application, then Apple Development, then ad-hoc. Set `SIGN_IDENTITY` to override it.
-
-- **Without a paid Apple Developer Program membership** (a free Personal Team), the app is signed with Apple Development but can't be notarized. On another Mac, the first launch is blocked. Open **System Settings › Privacy & Security** and click **Open Anyway** once.
-- **With a membership**, create a Developer ID Application certificate in Xcode › Settings › Accounts and set its team in `mac/Config/Local.xcconfig`. Then store notarization credentials once and pass the profile name:
-
-  ```sh
-  xcrun notarytool store-credentials lectern --apple-id <you> --team-id <TEAMID>
-  NOTARY_PROFILE=lectern make mac-release
-  ```
-
-  The DMG is then notarized and stapled, and opens on any Mac without warnings.
-
-### Watch signing key
-
-`garmin/developer_key.der` signs every watch build. Back it up somewhere safe outside the repo; it's git-ignored. The Connect IQ store only accepts updates signed with the key that signed the first upload.
-
-## Troubleshooting
-
-- **Watch stuck on "Looking for Mac"**: check that the menu says *Waiting for your watch*. If Bluetooth is off or denied, the setup checklist says so and offers a fix. Then read the small grey line at the bottom of the watch screen, **BLE *n* / Mac *m***, and the orange line under the status, if any:
-  - **BLE 0**: the watch hears no Bluetooth devices at all. Restart the watch.
-  - **BLE** above 0, **Mac 0**: the watch hears devices but not the Mac's advertisement. Make sure both builds are current, then turn the Mac's Bluetooth off and on.
-  - **Mac** keeps rising: the watch finds the Mac but the connection fails. The orange line says where: *Pairing refused*, *Connect timed out*, *Service not found*, *Command not found* or *Disconnected*.
-- **Watch connects but slides don't move**: Accessibility access is missing, *Send clicks to the Mac* is off, or the presenting app isn't frontmost. *Slides go to* in the menu shows which app gets the keys.
-- **Mac shows no watch but clicks work**: the watch couldn't subscribe. Clicks still work; only the indicator is affected.
-- **Logs**: `log stream --info --predicate 'subsystem == "com.benjaminrichard.Lectern"'`.
-- Garmin's BLE stack has known pairing and bonding bugs on the fēnix 7 and 8. Lectern uses an open, unbonded connection and unpairs and rescans after every disconnect. macOS rotates its Bluetooth address, so waiting for an automatic reconnect isn't reliable.
-- The Connect IQ simulator can only do BLE with a Nordic nRF52 dongle, so test the link on the real watch.
+How Lectern works, how to build it and how releases are made: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
